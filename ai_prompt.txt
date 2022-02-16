@@ -1,0 +1,6 @@
+Question: Test
+just crash: I HIT AN ERROR!!!! (Likely token limit, reset the conversation to continue. If you wish to continue the conversation, copy the messages from the chat log and paste them into the charDesc and removing parts that you don't feel are needed)
+
+Question: Test 2
+just crash:
+

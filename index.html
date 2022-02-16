@@ -1,0 +1,216 @@
+<html>
+    <body>
+        <h1>Talk to GPT-3!</h1>
+        <h2>Configuration</h2>
+        <p><b>API Key</b> 
+        <br>This is what is used to access GPT-3's servers, you can get your own from beta.openai.com)</p>
+        <textarea id="apiKey" cols="70" rows="1"></textarea>
+
+        <p><b>Temperature (Default: 0.9)</b>
+        <br>This is what controls the AI's confidence level. The higher the number the less confident it needs to be to accept an answer.
+        <br>Leading to more realistic conversations (can also abandon character details at times though), a lower number requires it to be,
+        <br>more confident but will often lead to repeats. 
+        <br>You may want to change this depending on what you are wanting to get out of a conversation</p>
+        <textarea id="temperature" cols="2" rows = "1">0.9</textarea>
+
+        <p><b>Max Tokens (Default: 16)</b>
+        <br>This effects the length a conversation can be, as well as the limit of the size that responses can be.
+        <br>The higher the number, the less conversation you can have, but the longer a response can be
+        <br>The lower the number, the longer a conversation you can have but the smaller a response can be.
+        <br>If its too low, you might get respones that get cut off. If its too high, you will end up with very short conversations
+        <br>16 is the default, however I would recommend raising and lowering this as your conversation goes on so that you can make sure 
+        <br>you get the most detail</p>
+        <textarea id="max_tokens" cols="2" rows="1">16</textarea>
+
+        <p><b>Engine (default "text-davinci-001")</b></p>
+        <textarea id="engine" cols="20" rows="1">text-davinci-001</textarea>
+        
+        <h2>AI character details</h2>
+
+        <p>AI's Character Name</p>
+        <textarea id="ai_name" cols="70" rows = "1"></textarea>
+
+        <p>AI's Character Description:</p>
+        <textarea id="ai_charDesc" cols="70" rows="8"></textarea>
+
+        <h2>Your character details (Leave these blank if you don't want to have details set for you)</h2>
+
+        <p>Your character's name</p>
+        <textarea id="pl_name" cols="70" rows = "1"></textarea>
+
+        <p>Your Character's Description</p>
+        <textarea id="pl_charDesc" cols="70" rows="8"></textarea>
+
+        <p>What do you want to say?</p>
+        <textarea id="question" cols="70" rows = "5"></textarea>
+        <br>
+        <button onclick="sendData()">Send</button>
+        <br>
+        <button onclick="getTokenUseCount()">Estimate Token count</button>
+        <textarea id = "token_estimate" cols="30" rows = "1" disabled = true>? Tokens / 2048 Tokens</textarea>
+        <p>Last response:</p>
+        <textarea id="lastResponse" cols="70" rows = "7" disabled=true></textarea>
+        <br><br><br>
+        <p>Chat Log</p>
+        <textarea id="log" cols="70" rows = "8" disabled = true></textarea>
+        <br>
+        <button onclick="clearChatLog()">Clear the chat log (NO CONFIRMATION!!!)</button>
+        <br><br><br>
+        <h1>Edit responses</h1>
+        <p><b>Enter Question ID (DEFAULT: 0)</b>
+        <br>You can find this in the chat Log, question ID is ABOVE the question you wish to edit</p>
+        <textarea id="edit_id" cols="5" rows="1">0</textarea>
+        <button onclick="fillInEditBoxes()">Fill in boxes (OPTIONAL)</button>
+        <button onclick="editQuestion()">Apply Changes</button>
+        <p><b>Question:</b></p>
+        <textarea id="edit_question" cols="70" rows="5"></textarea>
+        <p><b>Response:</b></p>
+        <textarea id="edit_response" cols="70" rows="7"></textarea>
+        <p><b>AI's Name</b></p>
+        <textarea id="edit_ai_name" cols="70" rows="1"></textarea>
+        <p><b>Your Name</b></p>
+        <textarea id="edit_pl_name" cols="70" rows="1"></textarea>
+        <script>
+            var questions = []
+
+            function fillInEditBoxes() {
+                // Grabing elements and element values
+                var question = document.getElementById('edit_question')
+                var response = document.getElementById('edit_response')
+                var ai_name = document.getElementById('edit_ai_name')
+                var pl_name = document.getElementById('edit_pl_name')
+                var id = parseInt(document.getElementById('edit_id').value)
+                
+                // Verifying value validity to avoid crashes
+                if (id == null) {
+                    id = 0
+                }
+
+                // Checking to make sure that the ID is a valid one
+                if ((questions.length - 1) < id) {
+                    console.log("ID Too Big")
+                    return;
+                }
+
+                // Grabbing the question
+                var storedQuestion = questions[id]
+
+                // Setting value to boxes
+                question.value = storedQuestion.question
+                response.value = storedQuestion.response
+                ai_name.value = storedQuestion.ai_name
+                pl_name.value = storedQuestion.pl_name
+            }
+
+            function getTokenUseCount() {
+                var ai_charDesc = document.getElementById('ai_charDesc').value
+                var pl_charDesc = document.getElementById('pl_charDesc').value
+                var question = document.getElementById('question').value
+                var ai_name = document.getElementById('ai_name').value
+                var pl_name = document.getElementById('pl_name').value
+
+                var nextQuestion = {"question": question, "ai_name": ai_name, "pl_name": pl_name}
+
+                var data = {
+                    "ai_charDesc": ai_charDesc,
+                    "pl_charDesc": pl_charDesc,
+                    "questions": questions,
+                    "nextQuestion": nextQuestion
+                }
+
+                fetch('api/token_estimate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                }).then(res => {
+                    res.text().then(text => {
+                        var max_tokens = parseInt(document.getElementById('max_tokens').value)
+                        var token_estimate = document.getElementById('token_estimate')
+                        token_estimate.value = `${parseInt(text) + max_tokens} Tokens / 2048 Tokens`
+                    })
+                })
+            }
+
+            function clearChatLog() {
+                questions = []
+                var chatLog = document.getElementById("log")
+                chatLog.value = ""
+            }
+
+            function sendData() {
+                var ai_charDesc = document.getElementById('ai_charDesc').value
+                var pl_charDesc = document.getElementById('pl_charDesc').value
+                var question = document.getElementById('question').value
+                var apiKey = document.getElementById('apiKey').value
+                var temperature = parseFloat(document.getElementById('temperature').value)
+                var ai_name = document.getElementById("ai_name").value
+                var pl_name = document.getElementById("pl_name").value
+                var max_tokens = document.getElementById("max_tokens").value
+                var engine = document.getElementById('engine').value
+
+                if (ai_name == "") {
+                    ai_name = "Response"
+                }
+
+                if (pl_name == "") {
+                    pl_name = "Question"
+                }
+
+
+                if (temperature == null) {
+                    temperature = 0.9
+                }
+
+                if (max_tokens == null) {
+                    max_tokens = 16
+                }
+
+                if (engine == (null || "")) {
+                    engine = "text-davinci-001"
+                }
+
+                var nextQuestion = {"question": question, "ai_name": ai_name, "pl_name": pl_name, "response": "", "id": questions.length}
+
+                var data = {
+                    "ai_charDesc": ai_charDesc,
+                    "pl_charDesc": pl_charDesc,
+                    "questions": questions,
+                    "apiKey": apiKey,
+                    "temperature": parseFloat(temperature),
+                    "ai_name": ai_name,
+                    "pl_name": pl_name,
+                    "max_tokens": parseInt(max_tokens),
+                    "nextQuestion": nextQuestion,
+                    "engine": engine
+                }
+
+                fetch('api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                }).then(res => {
+                    res.text().then(text => {
+                        var lastResponse = document.getElementById("lastResponse")
+                        var chatLog = document.getElementById("log")
+                        var response = text.trim()
+
+                        lastResponse.value = response
+
+                        nextQuestion.response = response
+                        var ai_name = nextQuestion.ai_name
+                        var pl_name = nextQuestion.pl_name
+
+                        questions.push(nextQuestion)
+
+                        var logValue = ""
+                        for (var question of questions) {
+                            logValue += `ID: ${question.id}\n${pl_name}: ${question.question}\n${ai_name}: ${question.response}\n\n`
+                        }
+
+                        chatLog.value = logValue
+                    });
+                })
+            }
+        </script>
+    </body>
+</html>
