@@ -4,7 +4,6 @@ import { Configuration, OpenAIApi } from "openai";
 
 // Import stuff for tokenizer
 import { encode } from 'gpt-3-encoder'
-import { writeFileSync } from "fs";
 
 // create a new Express app, idk they included the port in a const here in the example but you don't have to obviously
 const app = express();

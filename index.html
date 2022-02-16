@@ -60,18 +60,55 @@
         <p><b>Enter Question ID (DEFAULT: 0)</b>
         <br>You can find this in the chat Log, question ID is ABOVE the question you wish to edit</p>
         <textarea id="edit_id" cols="5" rows="1">0</textarea>
-        <button onclick="fillInEditBoxes()">Fill in boxes (OPTIONAL)</button>
+        <button onclick="fillInEditBoxes()">Fill in boxes (OPTIONAL but if you don't wish to retype all fields, recommended)</button>
         <button onclick="editQuestion()">Apply Changes</button>
         <p><b>Question:</b></p>
         <textarea id="edit_question" cols="70" rows="5"></textarea>
         <p><b>Response:</b></p>
         <textarea id="edit_response" cols="70" rows="7"></textarea>
-        <p><b>AI's Name</b></p>
+        <p><b>AI's Name</b>
+        <br>(This is "Response" if you didn't put one in)</p>
         <textarea id="edit_ai_name" cols="70" rows="1"></textarea>
-        <p><b>Your Name</b></p>
+        <p><b>Your Name</b>
+        <br>(This is "Question" if you didn't put one in)</p>
         <textarea id="edit_pl_name" cols="70" rows="1"></textarea>
         <script>
             var questions = []
+
+            function editQuestion() {
+                // Grabbing element values
+                var question = document.getElementById('edit_question').value
+                var response = document.getElementById('edit_response').value
+                var ai_name = document.getElementById('edit_ai_name').value
+                var pl_name = document.getElementById('edit_pl_name').value
+                var id = parseInt(document.getElementById('edit_id').value)
+
+                // Verify the value to avoid a crash
+                if (id == null) {
+                    id = 0
+                }
+
+                // Checking to make sure that the ID is a valid one
+                if ((questions.length - 1) < id) {
+                    console.log("ID Too Big")
+                    return;
+                }
+
+                // Grabbing the question
+                var storedQuestion = questions[id]
+
+                // Updating the stored values
+                storedQuestion.question = question
+                storedQuestion.response = response
+                storedQuestion.ai_name = ai_name
+                storedQuestion.pl_name = pl_name
+
+                // Replacing the values in the array with updated info
+                questions[id] = storedQuestion
+
+                // Update the chat log with changes
+                updateChatLog()
+            }
 
             function fillInEditBoxes() {
                 // Grabing elements and element values
@@ -191,25 +228,27 @@
                 }).then(res => {
                     res.text().then(text => {
                         var lastResponse = document.getElementById("lastResponse")
-                        var chatLog = document.getElementById("log")
                         var response = text.trim()
 
                         lastResponse.value = response
-
                         nextQuestion.response = response
-                        var ai_name = nextQuestion.ai_name
-                        var pl_name = nextQuestion.pl_name
 
                         questions.push(nextQuestion)
 
-                        var logValue = ""
-                        for (var question of questions) {
-                            logValue += `ID: ${question.id}\n${pl_name}: ${question.question}\n${ai_name}: ${question.response}\n\n`
-                        }
-
-                        chatLog.value = logValue
+                        updateChatLog()
                     });
                 })
+            }
+
+            function updateChatLog() {
+                var chatLog = document.getElementById("log")
+
+                var logValue = ""
+                for (var question of questions) {
+                    logValue += `ID: ${question.id}\n${question.pl_name}: ${question.question}\n${question.ai_name}: ${question.response}\n\n`
+                }
+
+                chatLog.value = logValue
             }
         </script>
     </body>
