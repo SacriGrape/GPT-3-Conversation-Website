@@ -31,7 +31,6 @@ app.post('/api/token_estimate', (req, res) => {
 
 app.post('/api/generate', (req, res) => {
     var prompt = promptGenerator(req.body.ai_charDesc, req.body.pl_charDesc, req.body.questions, req.body.nextQuestion)
-    writeFileSync("./ai_prompt.txt", prompt)
     const configuration = new Configuration({
         apiKey: req.body.apiKey
     });
