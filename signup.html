@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+        <h1>Signup Page</h1>
+        <input type="text" name="username" placeholder="Username" id="username" required>
+        <input type="password" name="password" placeholder="Password" id="password" required>
+        <button onclick="createAccount()">Sign Up!</button>
+        <textarea id="Log" cols=70 rows="2"></textarea>
+    </body>
+    <script>
+        function redirect(location) {
+            window.location.href = window.location.origin + location
+        }
+
+        function createAccount() {
+            var data = {
+                username: document.getElementById("username").value,
+                password: document.getElementById("password").value
+            }
+            
+            fetch('/user/createaccount', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            }).then((data) => {
+                data.json().then((data) => {
+                    if (data.accountCreated) {
+                        redirect("/")
+                    } else {
+                        document.getElementById("Log").value = data.failReason
+                    }
+                })
+            })
+        }
+    </script>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+        <h1>Login page<h1></h1>
+        <input type="text" name="username" placeholder="Username" id="username" required>
+        <input type="password" name="password" placeholder="Password" id="password" required>
+        <button onclick="login()">Log In!</button>
+        <textarea id="Log" cols=70 rows="2"></textarea>
+        <br>
+        <button onclick="redirect('/')">Back to Home</button>
+        <script>
+            function redirect(location) {
+                window.location.href = window.location.origin + location
+            }
+
+            function login() {
+                var data = {
+                    username: document.getElementById("username").value,
+                    password: document.getElementById("password").value
+                }
+
+                fetch('/user/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                }).then((response) => {
+                    response.json().then((data) => {
+                        if (data.isSignedIn) {
+                            redirect("/")
+                        } else {
+                            document.getElementById("Log").value = data.failReason
+                        }
+                    })
+                })
+            }
+        </script>
+    </body>
+</html>

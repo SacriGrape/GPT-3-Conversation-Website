@@ -2,11 +2,16 @@
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
-    <body>
+    <body onload="isSignedIn()">
         <h1>Talk to GPT-3!</h1>
+        <textarea id="user_info", cols="70" rows="1" disabled=true></textarea>
+        <br>
+        <button onclick="redirect('/signup')" id="signupButton" hidden=true>Sign Up</button>
+        <button onclick="redirect('/login')" id="loginButton" hidden=true>Login</button>
+        <button onclick="signout()" id="signoutButton" hidden=true>Sign Out</button>
         <h2>Configuration</h2>
         <p><b>API Key</b> 
-        <br>This is what is used to access GPT-3's servers, you can get your own from beta.openai.com)</p>
+        <br>This is what is used to access GPT-3's servers, you can get your own from beta.openai.com</p>
         <textarea id="apiKey" cols="70" rows="1"></textarea>
 
         <p><b>Temperature (Default: 0.9)</b>
@@ -77,6 +82,51 @@
         <textarea id="edit_pl_name" cols="70" rows="1"></textarea>
         <script>
             var questions = []
+
+            function redirect(location) {
+                window.location.href = window.location.origin + location
+            }
+
+            function signout() {
+                fetch('/user/signout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json'},
+                    body: "{}"
+                }).then(() => {
+                    isSignedIn()
+                })
+            }
+
+            function isSignedIn() {
+                fetch("/user/signedin", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json'},
+                    body: "{}"
+                }).then((value) => {
+                    value.json().then((response) => {
+                        var username = "Not Signed In!"
+                        if (response.isSignedIn) {
+                            username = response.username
+
+                            var loginButton = document.getElementById("loginButton")
+                            var signupButton = document.getElementById("signupButton")
+                            var signoutButton = document.getElementById("signoutButton")
+                            loginButton.hidden = true
+                            signupButton.hidden = true
+                            signoutButton.hidden = false
+                        } else {
+                            var loginButton = document.getElementById("loginButton")
+                            var signupButton = document.getElementById("signupButton")
+                            var signoutButton = document.getElementById("signoutButton")
+                            loginButton.hidden = false
+                            signupButton.hidden = false
+                            signoutButton.hidden = true
+
+                        }
+                        document.getElementById("user_info").value = `Signed in as: ${username}`
+                    })
+                })
+            }
 
             function editQuestion() {
                 // Grabbing element values
