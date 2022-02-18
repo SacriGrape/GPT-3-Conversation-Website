@@ -24,6 +24,13 @@ interface Accounts {
     email: string
 }
 
+// Creating account data interface
+interface AccountData {
+    id: number
+    questions: string
+    configuration: String
+}
+
 // Creating the account schema
 const AccountSchema = new Schema<Accounts>({
     id: { type: Number, required: true},
@@ -31,8 +38,18 @@ const AccountSchema = new Schema<Accounts>({
     password: { type: String, required: true }
 });
 
+// Creat the AccountData Schema
+const AccountDataSchema = new Schema<AccountData>({
+    id: { type: Number, required: true},
+    questions: { type: String },
+    configuration: { type: String }
+})
+
 // Creating the account model
 const AccountModel = model<Accounts>('Account', AccountSchema)
+
+// Creating AccountData model
+const AccountDataModel = model<AccountData>('AccountData', AccountDataSchema)
 
 // use the JSON middleware which just lets you uhhhh... get JSON from POST requests I think?
 app.use(express.json());
@@ -56,6 +73,102 @@ app.get('/login', (req, res) => {
     res.sendFile('./login.html', {root: __dirname });
 })
 
+app.post('/user/getquestions', (req, res) => {
+    AccountModel.find({username: req.session.username}).then((user) => {
+        var id = user[0].id
+        AccountDataModel.exists({id: id}, (err, doc) => {
+            if (err) {
+                console.log(err)
+            } else {
+                if (doc != null) {
+                    AccountDataModel.findOne({id: id}).then((doc) => {
+                        res.send(JSON.stringify(doc.questions))
+                    })
+                } else {
+                    res.send("{[]}")
+                }
+            }
+        })
+    })
+})
+
+app.post('/user/savequestions', (req, res) => {
+    AccountModel.find({username: req.session.username}).then((user) => {
+        var id = user[0].id
+        AccountDataModel.exists({id: id}, (err, doc) => {
+            if (err) {
+                console.log(err)
+            } else {
+                if (doc != null) {
+                    AccountDataModel.findOneAndUpdate({id: id}, {questions: JSON.stringify(req.body)}).then((value) => {
+                        value.save()
+                    })
+                } else {
+                    var accountData = new AccountDataModel({
+                        id: id
+                    })
+
+                    accountData.questions = JSON.stringify(req.body)
+                    accountData.save()
+                }
+            }
+        })
+
+        res.send("")
+    })
+})
+
+app.post('/user/getconfigdata', (req, res) => {
+    AccountModel.find({username: req.session.username}).then((user) => {
+        var id = user[0].id
+        AccountDataModel.exists({id: user[0].id}, (err, doc) => {
+            if (err) {
+                console.log(err)
+            } else {
+                if (doc != null) {
+                    AccountDataModel.findById(doc._id).then((value) => {
+                        res.send(value.configuration)
+                    })
+                } else {
+                    var data = {
+                        apiKey: "",
+                        temperature: "0.9",
+                        max_tokens: "16",
+                        engine: "text-davinci-001"
+                    }
+
+                    res.send(JSON.stringify(data))
+                }
+            }
+        })
+    })
+})
+
+app.post('/user/saveconfigdata', (req, res) => {
+    AccountModel.find({username: req.session.username}).then((user) => {
+        AccountDataModel.exists({id: user[0].id}, (err, doc) => {
+            if (err) {
+                console.log(err)
+            } else {
+                if (doc != null) {
+                    console.log(user[0].id)
+                    AccountDataModel.findOneAndUpdate({id: user[0].id}, { $set: {configuration: JSON.stringify(req.body)}}).then((value) => {
+                        value.save()
+                    })
+                } else {
+                    var accountData = new AccountDataModel({
+                        id: user[0].id,
+                        configuration: JSON.stringify(req.body)
+                    })
+                    accountData.save()
+                }
+            }
+
+            res.send("")
+        })
+    })
+})
+
 app.post('/user/login', (req, res) => {
     AccountModel.exists({username: req.body.username, password: req.body.password}, (err, doc) => {
         var data = {
@@ -75,7 +188,6 @@ app.post('/user/login', (req, res) => {
                 data.failReason = "Username or Password doesn't match!"
             }
         }
-        console.log(data)
         res.send(JSON.stringify(data))
     })
 })

@@ -32,7 +32,9 @@
 
         <p><b>Engine (default "text-davinci-001")</b></p>
         <textarea id="engine" cols="20" rows="1">text-davinci-001</textarea>
-        
+        <br>
+        <button onclick="saveConfigData()" id="saveConfig" hidden = true>Save Configuration To Account</button>
+        <button onclick="loadConfigData()" id="loadConfig">Load Configuration From Account</button>
         <h2>AI character details</h2>
 
         <p>AI's Character Name</p>
@@ -63,6 +65,8 @@
         <textarea id="log" cols="70" rows = "8" disabled = true></textarea>
         <br>
         <button onclick="clearChatLog()">Clear the chat log (NO CONFIRMATION!!!)</button>
+        <button onclick="saveQuestions()">Save questions to account</button>
+        <button onclick="loadQuestions()">Load questions from account</button>
         <br><br><br>
         <h1>Edit responses</h1>
         <p><b>Enter Question ID (DEFAULT: 0)</b>
@@ -85,6 +89,57 @@
 
             function redirect(location) {
                 window.location.href = window.location.origin + location
+            }
+
+            function loadQuestions() {
+                fetch('/user/getquestions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json'},
+                    body: "{}"
+                }).then((value) => {
+                    value.json().then((res) => {
+                        questions = JSON.parse(res)
+                        updateChatLog()
+                    })
+                })
+            }
+
+            function saveQuestions() {
+                fetch('/user/savequestions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json'},
+                    body: JSON.stringify(questions)
+                })
+            }
+
+            function loadConfigData() {
+                fetch('/user/getconfigdata', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json'},
+                    body: "{}"
+                }).then((response) => {
+                    response.json().then((res) => {
+                        document.getElementById("apiKey").value = res.apiKey
+                        document.getElementById("temperature").value = res.temperature
+                        document.getElementById("max_tokens").value = res.max_tokens
+                        document.getElementById("engine").value = res.engine
+                    });
+                })
+            }
+
+            function saveConfigData() {
+                var data = {
+                    apiKey: document.getElementById("apiKey").value,
+                    max_tokens: document.getElementById("max_tokens").value,
+                    temperature: document.getElementById("temperature").value,
+                    engine: document.getElementById("engine").value
+                }
+
+                fetch('/user/saveconfigdata', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                })
             }
 
             function signout() {
@@ -111,17 +166,20 @@
                             var loginButton = document.getElementById("loginButton")
                             var signupButton = document.getElementById("signupButton")
                             var signoutButton = document.getElementById("signoutButton")
+                            var saveDataButton = document.getElementById("saveConfig")
                             loginButton.hidden = true
                             signupButton.hidden = true
                             signoutButton.hidden = false
+                            saveDataButton.hidden = false
                         } else {
                             var loginButton = document.getElementById("loginButton")
                             var signupButton = document.getElementById("signupButton")
                             var signoutButton = document.getElementById("signoutButton")
+                            var saveDataButton = document.getElementById("saveConfig")
                             loginButton.hidden = false
                             signupButton.hidden = false
                             signoutButton.hidden = true
-
+                            saveDataButton.hidden = true
                         }
                         document.getElementById("user_info").value = `Signed in as: ${username}`
                     })
