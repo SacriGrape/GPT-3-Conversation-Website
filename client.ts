@@ -6,7 +6,6 @@ import { connect, Schema, model } from 'mongoose'
 
 // Import stuff for tokenizer
 import { encode } from 'gpt-3-encoder'
-import { request } from 'http';
 
 // create a new Express app, idk they included the port in a const here in the example but you don't have to obviously
 const app = express();
@@ -54,6 +53,8 @@ const AccountDataModel = model<AccountData>('AccountData', AccountDataSchema)
 // use the JSON middleware which just lets you uhhhh... get JSON from POST requests I think?
 app.use(express.json());
 
+app.set('view engine', 'ejs');
+
 app.use(session({
     secret: 'secret',
     resave: true,
@@ -62,7 +63,10 @@ app.use(session({
 
 // create a new GET route for / that returns the HTML file
 app.get('/', (req, res) => {
-    res.sendFile('./index.html', { root: __dirname });
+    var data = {
+        isSignedIn: req.session.isSignedIn
+    }
+    res.render("index", data)
 });
 
 app.get('/signup', (req, res) => {
