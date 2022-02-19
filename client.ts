@@ -86,12 +86,13 @@ app.post("/user/loadelementsfromaccount", (req, res) => {
             AccountDataModel.exists({id: user.id}, (err, doc) => {
                 if (err) {
                     console.log(err)
+                    res.send(JSON.stringify(savedElements))
                 } else {
                     if (doc != null) {
                         AccountDataModel.findById(doc._id).then((data) => {
                             if (data.elements != null) {
-                                console.log(data.elements)
                                 savedElements = JSON.parse(data.elements.toString())
+                                res.send(JSON.stringify(savedElements))
                             }
                         })
                     } else {
@@ -99,16 +100,15 @@ app.post("/user/loadelementsfromaccount", (req, res) => {
                             id: user.id
                         })
                         accountData.save()
+                        res.send(JSON.stringify(savedElements))
                     }
                 }
             })
         })
     }
-    res.send(JSON.stringify(savedElements))
 })
 
 app.post("/user/saveelementstosession", (req, res) => {
-    console.log(req.body)
     if (req.session.isSignedIn) {
         AccountModel.findOne({username: req.session.username}).then((user) => {
             AccountDataModel.exists({id: user.id}, (err, doc) => {
@@ -124,9 +124,9 @@ app.post("/user/saveelementstosession", (req, res) => {
                         var accountData = new AccountDataModel({
                             id: user.id
                         })
+                        accountData.elements = JSON.stringify(req.body)
+                        accountData.save()
                     }
-                    accountData.elements = JSON.stringify(req.body)
-                    accountData.save()
                 }
             })
         })
@@ -211,7 +211,6 @@ app.post('/user/saveconfigdata', (req, res) => {
                 console.log(err)
             } else {
                 if (doc != null) {
-                    console.log(user.id)
                     AccountDataModel.findOneAndUpdate({id: user.id}, { $set: {configuration: JSON.stringify(req.body)}}).then((value) => {
                         value.save()
                     })

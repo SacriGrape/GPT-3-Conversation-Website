@@ -95,14 +95,14 @@
         <br>(This is "Question" if you didn't put one in)</p>
         <textarea id="edit_pl_name" cols="70" rows="1"></textarea>
         <br>
-        <button onclick="loadElementsFroMAccount()">Load</button>
+        <button onclick="loadElementsFromAccount()">Load</button>
         <button onclick="saveElementsToSession()">Save</button>
         <script>
             var questions = []
 
             function main() {
                 isSignedIn()
-                loadElementsFroMAccount()
+                loadElementsFromAccount()
             }
 
             function redirect(location) {
@@ -116,8 +116,7 @@
                     headers: { "content-type": "application/json" }
                 }).then((value) => {
                     value.json().then((data) => {
-                        console.log(data)
-                        if (JSON.stringify(data) == "{}") {
+                        if (JSON.stringify(data) == "{}" || data == "{}") {
                             return
                         }
                         apiKey.value = data.apiKey
@@ -304,7 +303,6 @@
                 }
 
                 // Grabbing the question
-                console.log(questions)
                 var storedQuestion = questions[id]
 
                 // Updating the stored values
