@@ -28,6 +28,7 @@ interface AccountData {
     id: number
     questions: string
     configuration: String
+    elements: String
 }
 
 // Creating the account schema
@@ -41,7 +42,8 @@ const AccountSchema = new Schema<Accounts>({
 const AccountDataSchema = new Schema<AccountData>({
     id: { type: Number, required: true},
     questions: { type: String },
-    configuration: { type: String }
+    configuration: { type: String },
+    elements: { type: String }
 })
 
 // Creating the account model
@@ -77,16 +79,58 @@ app.get('/login', (req, res) => {
     res.render("login")
 })
 
-app.post("/user/loadelementsfromsession", (req, res) => {
-    var returnedData = {}
-    if (req.session.savedElements != null) {
-        returnedData = req.session.savedElements
+app.post("/user/loadelementsfromaccount", (req, res) => {
+    var savedElements = JSON.stringify({})
+    if (req.session.isSignedIn) {
+        AccountModel.findOne({username: req.session.username}).then((user) => {
+            AccountDataModel.exists({id: user.id}, (err, doc) => {
+                if (err) {
+                    console.log(err)
+                } else {
+                    if (doc != null) {
+                        AccountDataModel.findById(doc._id).then((data) => {
+                            if (data.elements != null) {
+                                console.log(data.elements)
+                                savedElements = JSON.parse(data.elements.toString())
+                            }
+                        })
+                    } else {
+                        var accountData = new AccountDataModel({
+                            id: user.id
+                        })
+                        accountData.save()
+                    }
+                }
+            })
+        })
     }
-    res.send(JSON.stringify(returnedData))
+    res.send(JSON.stringify(savedElements))
 })
 
 app.post("/user/saveelementstosession", (req, res) => {
-    req.session.savedElements = req.body
+    console.log(req.body)
+    if (req.session.isSignedIn) {
+        AccountModel.findOne({username: req.session.username}).then((user) => {
+            AccountDataModel.exists({id: user.id}, (err, doc) => {
+                if (err) {
+                    console.log(err)
+                } else {
+                    if (doc != null) {
+                        AccountDataModel.findById(doc._id).then((accountData) => {
+                            accountData.elements = JSON.stringify(req.body)
+                            accountData.save()
+                        })
+                    } else {
+                        var accountData = new AccountDataModel({
+                            id: user.id
+                        })
+                    }
+                    accountData.elements = JSON.stringify(req.body)
+                    accountData.save()
+                }
+            })
+        })
+    }
     res.send("")
 })
 
@@ -136,9 +180,9 @@ app.post('/user/savequestions', (req, res) => {
 })
 
 app.post('/user/getconfigdata', (req, res) => {
-    AccountModel.find({username: req.session.username}).then((user) => {
-        var id = user[0].id
-        AccountDataModel.exists({id: user[0].id}, (err, doc) => {
+    AccountModel.findOne({username: req.session.username}).then((user) => {
+        var id = user.id
+        AccountDataModel.exists({id: id}, (err, doc) => {
             if (err) {
                 console.log(err)
             } else {
@@ -153,7 +197,6 @@ app.post('/user/getconfigdata', (req, res) => {
                         max_tokens: "16",
                         engine: "text-davinci-001"
                     }
-
                     res.send(JSON.stringify(data))
                 }
             }
@@ -162,19 +205,19 @@ app.post('/user/getconfigdata', (req, res) => {
 })
 
 app.post('/user/saveconfigdata', (req, res) => {
-    AccountModel.find({username: req.session.username}).then((user) => {
-        AccountDataModel.exists({id: user[0].id}, (err, doc) => {
+    AccountModel.findOne({username: req.session.username}).then((user) => {
+        AccountDataModel.exists({id: user.id}, (err, doc) => {
             if (err) {
                 console.log(err)
             } else {
                 if (doc != null) {
-                    console.log(user[0].id)
-                    AccountDataModel.findOneAndUpdate({id: user[0].id}, { $set: {configuration: JSON.stringify(req.body)}}).then((value) => {
+                    console.log(user.id)
+                    AccountDataModel.findOneAndUpdate({id: user.id}, { $set: {configuration: JSON.stringify(req.body)}}).then((value) => {
                         value.save()
                     })
                 } else {
                     var accountData = new AccountDataModel({
-                        id: user[0].id,
+                        id: user.id,
                         configuration: JSON.stringify(req.body)
                     })
                     accountData.save()
