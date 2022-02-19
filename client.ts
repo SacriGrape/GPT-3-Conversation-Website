@@ -70,11 +70,11 @@ app.get('/', (req, res) => {
 });
 
 app.get('/signup', (req, res) => {
-    res.sendFile('./signup.html', {root: __dirname });
+    res.render("signup");
 })
 
 app.get('/login', (req, res) => {
-    res.sendFile('./login.html', {root: __dirname });
+    res.render("login")
 })
 
 app.post('/user/getquestions', (req, res) => {
