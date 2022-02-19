@@ -2,7 +2,7 @@
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
-    <body onload="isSignedIn()">
+    <body onload="main()">
         <h1>Talk to GPT-3!</h1>
         <textarea id="user_info", cols="70" rows="1" disabled=true></textarea>
         <br>
@@ -36,10 +36,8 @@
         <p><b>Engine (default "text-davinci-001")</b></p>
         <textarea id="engine" cols="20" rows="1">text-davinci-001</textarea>
         <br>
-        <% if (isSignedIn) { %> 
-            <button onclick="saveConfigData()" id="saveConfig">Save Configuration To Account</button>
-            <button onclick="loadConfigData()" id="loadConfig">Load Configuration From Account</button>
-        <% } %>
+        <button onclick="saveConfigData()" id="saveConfig" <% if (!isSignedIn) { %> disabled title="You must be signed in to use this feature" <% } %>>Save Configuration To Account</button>
+        <button onclick="loadConfigData()" id="loadConfig" <% if (!isSignedIn) { %> disabled title="You must be signed in to use this feature" <% } %>>Load Configuration From Account</button>
         <h2>AI character details</h2>
 
         <p>AI's Character Name</p>
@@ -70,10 +68,8 @@
         <textarea id="log" cols="70" rows = "8" disabled = true></textarea>
         <br>
         <button onclick="clearChatLog()">Clear the chat log (NO CONFIRMATION!!!)</button>
-        <% if (isSignedIn) { %> 
-            <button onclick="saveQuestions()" title="Test" disabled>Save questions to account</button>
-            <button onclick="loadQuestions()">Load questions from account</button>
-        <% } %>
+        <button onclick="saveQuestions()" <% if (!isSignedIn) { %> disabled title="You must be signed in to use this feature" <% } %> >Save questions to account</button>
+        <button onclick="loadQuestions()" <% if (!isSignedIn) { %> disabled title="You must be signed in to use this feature" <% } %> >Load questions from account</button>
         <br><br><br>
         <h1>Edit responses</h1>
         <p><b>Enter Question ID (DEFAULT: 0)</b>
@@ -91,11 +87,78 @@
         <p><b>Your Name</b>
         <br>(This is "Question" if you didn't put one in)</p>
         <textarea id="edit_pl_name" cols="70" rows="1"></textarea>
+        <br>
+        <button onclick="saveElementsToSession()">Test1</button>
+        <button onclick="loadElementsFromSession()">Test2</button>
         <script>
             var questions = []
 
+            function main() {
+                isSignedIn()
+                loadElementsFromSession()
+            }
+
             function redirect(location) {
+                saveElementsToSession()
                 window.location.href = window.location.origin + location
+            }
+
+            function loadElementsFromSession() {
+                fetch("/user/loadelementsfromsession", {
+                    method: "post",
+                    headers: { "content-type": "application/json" }
+                }).then((value) => {
+                    value.json().then((data) => {
+                        console.log(data)
+                        if (JSON.stringify(data) == "{}") {
+                            return
+                        }
+                        apiKey.value = data.apiKey
+                        temperature.value = data.temperature
+                        max_tokens.value = data.max_tokens
+                        engine.value = data.engine
+                        ai_name.value = data.ai_name
+                        ai_charDesc.value = data.ai_charDesc
+                        pl_name.value = data.pl_name
+                        pl_charDesc.value = data.pl_charDesc
+                        question.value = data.question
+                        lastResponse.value = data.lastResponse
+                        edit_id.value = data.edit_id
+                        edit_question.value = data.edit_question
+                        edit_response.value = data.edit_response
+                        edit_ai_name.value = data.edit_ai_name
+                        edit_pl_name.value = data.edit_pl_name
+                        questions = data.questions
+                        updateChatLog()
+                    })
+                })
+            }
+
+            function saveElementsToSession() {
+                var data = {
+                    apiKey: apiKey.value,
+                    temperature: temperature.value,
+                    max_tokens: max_tokens.value,
+                    engine: engine.value,
+                    ai_name: ai_name.value,
+                    ai_charDesc: ai_charDesc.value,
+                    pl_name: pl_name.value,
+                    pl_charDesc: pl_charDesc.value,
+                    question: question.value,
+                    lastResponse: lastResponse.value,
+                    questions: questions,
+                    edit_id: edit_id.value,
+                    edit_question: edit_question.value,
+                    edit_response: edit_response.value,
+                    edit_ai_name: edit_ai_name.value,
+                    edit_pl_name: edit_pl_name.value
+                }
+
+                fetch("/user/saveelementstosession", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(data)
+                })
             }
 
             function loadQuestions() {
@@ -275,6 +338,8 @@
             }
 
             function sendData() {
+                saveElementsToSession()
+
                 var ai_charDesc = document.getElementById('ai_charDesc').value
                 var pl_charDesc = document.getElementById('pl_charDesc').value
                 var question = document.getElementById('question').value

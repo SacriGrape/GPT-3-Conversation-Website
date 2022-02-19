@@ -77,6 +77,19 @@ app.get('/login', (req, res) => {
     res.render("login")
 })
 
+app.post("/user/loadelementsfromsession", (req, res) => {
+    var returnedData = {}
+    if (req.session.savedElements != null) {
+        returnedData = req.session.savedElements
+    }
+    res.send(JSON.stringify(returnedData))
+})
+
+app.post("/user/saveelementstosession", (req, res) => {
+    req.session.savedElements = req.body
+    res.send("")
+})
+
 app.post('/user/getquestions', (req, res) => {
     AccountModel.find({username: req.session.username}).then((user) => {
         var id = user[0].id
