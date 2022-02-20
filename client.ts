@@ -257,7 +257,6 @@ app.post('/api/generate_summary', (req, res) => {
         }
         res.send(JSON.stringify(data))
     }).catch((err) => {
-        writeFileSync("err.json", JSON.stringify(err))
         res.send("I HIT AN ERROR!!!! (Likely token limit, reset the conversation to continue. If you wish to continue the conversation, copy the messages from the chat log and paste them into the charDesc and removing parts that you don't feel are needed)")
     })
 })
