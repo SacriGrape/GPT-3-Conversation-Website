@@ -6,6 +6,7 @@ import { connect, Schema, model } from 'mongoose'
 
 // Import stuff for tokenizer
 import { encode } from 'gpt-3-encoder'
+import { writeFileSync } from 'fs';
 
 // create a new Express app, idk they included the port in a const here in the example but you don't have to obviously
 const app = express();
@@ -26,8 +27,7 @@ interface Accounts {
 // Creating account data interface
 interface AccountData {
     id: number
-    questions: string
-    configuration: String
+    conversations: string
     elements: String
 }
 
@@ -41,8 +41,7 @@ const AccountSchema = new Schema<Accounts>({
 // Creat the AccountData Schema
 const AccountDataSchema = new Schema<AccountData>({
     id: { type: Number, required: true},
-    questions: { type: String },
-    configuration: { type: String },
+    conversations: { type: String },
     elements: { type: String }
 })
 
@@ -65,10 +64,26 @@ app.use(session({
 
 // create a new GET route for / that returns the HTML file
 app.get('/', (req, res) => {
-    var data = {
-        isSignedIn: req.session.isSignedIn
+    if (req.session.isSignedIn) {
+        AccountModel.exists({username: req.session.username}, (err, doc) => {
+            if (err) {
+                console.log(err)
+            } else {
+                var userData = null
+                if (doc != null) {
+                    AccountModel.findById(doc._id).then((user) => {
+                        
+                    })
+                }
+
+                var data = {
+                    isSignedIn: req.session.isSignedIn,
+
+                }
+                res.render("index", data)
+            }
+        })
     }
-    res.render("index", data)
 });
 
 app.get('/signup', (req, res) => {
@@ -134,100 +149,6 @@ app.post("/user/saveelementstosession", (req, res) => {
     res.send("")
 })
 
-app.post('/user/getquestions', (req, res) => {
-    AccountModel.find({username: req.session.username}).then((user) => {
-        var id = user[0].id
-        AccountDataModel.exists({id: id}, (err, doc) => {
-            if (err) {
-                console.log(err)
-            } else {
-                if (doc != null) {
-                    AccountDataModel.findOne({id: id}).then((doc) => {
-                        res.send(JSON.stringify(doc.questions))
-                    })
-                } else {
-                    res.send("{[]}")
-                }
-            }
-        })
-    })
-})
-
-app.post('/user/savequestions', (req, res) => {
-    AccountModel.find({username: req.session.username}).then((user) => {
-        var id = user[0].id
-        AccountDataModel.exists({id: id}, (err, doc) => {
-            if (err) {
-                console.log(err)
-            } else {
-                if (doc != null) {
-                    AccountDataModel.findOneAndUpdate({id: id}, {questions: JSON.stringify(req.body)}).then((value) => {
-                        value.save()
-                    })
-                } else {
-                    var accountData = new AccountDataModel({
-                        id: id
-                    })
-
-                    accountData.questions = JSON.stringify(req.body)
-                    accountData.save()
-                }
-            }
-        })
-
-        res.send("")
-    })
-})
-
-app.post('/user/getconfigdata', (req, res) => {
-    AccountModel.findOne({username: req.session.username}).then((user) => {
-        var id = user.id
-        AccountDataModel.exists({id: id}, (err, doc) => {
-            if (err) {
-                console.log(err)
-            } else {
-                if (doc != null) {
-                    AccountDataModel.findById(doc._id).then((value) => {
-                        res.send(value.configuration)
-                    })
-                } else {
-                    var data = {
-                        apiKey: "",
-                        temperature: "0.9",
-                        max_tokens: "16",
-                        engine: "text-davinci-001"
-                    }
-                    res.send(JSON.stringify(data))
-                }
-            }
-        })
-    })
-})
-
-app.post('/user/saveconfigdata', (req, res) => {
-    AccountModel.findOne({username: req.session.username}).then((user) => {
-        AccountDataModel.exists({id: user.id}, (err, doc) => {
-            if (err) {
-                console.log(err)
-            } else {
-                if (doc != null) {
-                    AccountDataModel.findOneAndUpdate({id: user.id}, { $set: {configuration: JSON.stringify(req.body)}}).then((value) => {
-                        value.save()
-                    })
-                } else {
-                    var accountData = new AccountDataModel({
-                        id: user.id,
-                        configuration: JSON.stringify(req.body)
-                    })
-                    accountData.save()
-                }
-            }
-
-            res.send("")
-        })
-    })
-})
-
 app.post('/user/login', (req, res) => {
     AccountModel.exists({username: req.body.username, password: req.body.password}, (err, doc) => {
         var data = {
@@ -240,14 +161,17 @@ app.post('/user/login', (req, res) => {
             data.failReason = null
         } else {
             if (doc != null) {
-                data.isSignedIn = true
-                req.session.username = req.body.username
-                req.session.isSignedIn = true
+                AccountModel.findById(doc._id).then((user) => {
+                    data.isSignedIn = true
+                    req.session.username = req.body.username
+                    req.session.isSignedIn = true
+                    req.session.id = user.id
+                })
             } else {
                 data.failReason = "Username or Password doesn't match!"
+                res.send(JSON.stringify(data))
             }
         }
-        res.send(JSON.stringify(data))
     })
 })
 
@@ -292,9 +216,49 @@ app.post('/user/createaccount', (req, res) => {
 
                 req.session.isSignedIn = true
                 req.session.username = req.body.username
+                req.session.id = id
             }
         }
         res.send(JSON.stringify(data))
+    })
+})
+
+app.post('/api/generate_summary', (req, res) => {
+    const configuration = new Configuration({
+        apiKey: req.body.apiKey
+    });
+
+    req.body.question = req.body.questions.splice(req.body.question.length / 2)
+    console.log(req.body.questions.length)
+
+    var limit = questionLimit(req.body.questions, req.body.max_tokens)
+
+
+    var questionString = ""
+    for (var question of req.body.questions) {
+        questionString += `${question.pl_name}: ${question.question}\n${question.ai_name}: ${question.response}\n\n`
+    }
+
+    var prompt = "Summarize the following conversation. Be concise, but include every detail learned from the conversation.\n\nConversation:\n\n" + questionString + "Summary:\n"
+    console.log("Token Estimate: ", token_estimate(prompt, req.body.max_tokens))
+
+    const openai = new OpenAIApi(configuration);
+    openai.createCompletion(
+        req.body.engine,
+        {
+            "prompt": prompt,
+            "temperature": req.body.temperature,
+            "max_tokens": req.body.max_tokens
+        }
+    ).then((r) => {
+        var data = {
+            prompt: prompt,
+            response: r.data.choices[0].text.trim()
+        }
+        res.send(JSON.stringify(data))
+    }).catch((err) => {
+        writeFileSync("err.json", JSON.stringify(err))
+        res.send("I HIT AN ERROR!!!! (Likely token limit, reset the conversation to continue. If you wish to continue the conversation, copy the messages from the chat log and paste them into the charDesc and removing parts that you don't feel are needed)")
     })
 })
 
@@ -305,12 +269,12 @@ app.post('/api/token_estimate', (req, res) => {
         nextQuestion = null
     }
 
-    var tokenCount = encode(promptGenerator(req.body.ai_charDesc, req.body.pl_charDesc, req.body.questions, nextQuestion)).length
+    var tokenCount = token_estimate(promptGenerator(req.body.ai_charDesc, req.body.pl_charDesc, req.body.questions, nextQuestion, req.body.summary), req.body.max_tokens)
     res.send(tokenCount.toString())
 })
 
 app.post('/api/generate', (req, res) => {
-    var prompt = promptGenerator(req.body.ai_charDesc, req.body.pl_charDesc, req.body.questions, req.body.nextQuestion)
+    var prompt = promptGenerator(req.body.ai_charDesc, req.body.pl_charDesc, req.body.questions, req.body.nextQuestion, req.body.summary)
     const configuration = new Configuration({
         apiKey: req.body.apiKey
     });
@@ -324,7 +288,11 @@ app.post('/api/generate', (req, res) => {
             "max_tokens": req.body.max_tokens
         }
     ).then(r => {
-        res.send(r.data.choices[0].text)
+        var data = {
+            response: r.data.choices[0].text,
+            prompt: prompt
+        }
+        res.send(JSON.stringify(data))
     }).catch(err => {
         console.log(err)
         res.send("I HIT AN ERROR!!!! (Likely token limit, reset the conversation to continue. If you wish to continue the conversation, copy the messages from the chat log and paste them into the charDesc and removing parts that you don't feel are needed)")
@@ -336,7 +304,25 @@ app.listen(port, () => {
     console.log(`Listening on port ${port}`);
 });
 
-function promptGenerator(ai_charDesc: string, pl_charDesc: string, questions: any, nextQuestion: any) {
+function token_estimate(string: String, max_tokens: number) {
+    return(encode(string).length + max_tokens)
+}
+
+function questionLimit(questions: any[], max_tokens: number) {
+    var questionString = ""
+    var i = 0
+    for (var question of questions) {
+        questionString += `${question.pl_name}: ${question.question}\n${question.ai_name}: ${question.response}\n\n`
+        if ((token_estimate(questionString, max_tokens)) > 2048) {
+            break;
+        }
+        i++
+    }
+    console.log(token_estimate(questionString, max_tokens) + max_tokens)
+    return i
+}
+
+function promptGenerator(ai_charDesc: string, pl_charDesc: string, questions: any, nextQuestion: any, summary: any) {
     var prompt = ""
     if (ai_charDesc != "") {
         prompt += nextQuestion.ai_name + "'s description: " + ai_charDesc + "\n\n"
@@ -345,13 +331,17 @@ function promptGenerator(ai_charDesc: string, pl_charDesc: string, questions: an
     if (pl_charDesc != "") {
         prompt += nextQuestion.pl_name + "'s description: " + pl_charDesc + "\n\n"
     }
+
+    if (summary != "") {
+        prompt += summary + "\n\n"
+    }
     
     for (var question of questions) {
         prompt += `${question.pl_name}: ${question.question}\n${question.ai_name}: ${question.response}\n\n`
     }
 
     if (nextQuestion != null) {
-        prompt += `${nextQuestion.pl_name}: ${nextQuestion.question}\n${nextQuestion.ai_name}:\n\n`
+        prompt += `${nextQuestion.pl_name}: ${nextQuestion.question}\n${nextQuestion.ai_name}:`
     }
 
     return prompt

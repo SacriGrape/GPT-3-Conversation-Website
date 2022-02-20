@@ -36,8 +36,6 @@
         <p><b>Engine (default "text-davinci-001")</b></p>
         <textarea id="engine" cols="20" rows="1">text-davinci-001</textarea>
         <br>
-        <button onclick="saveConfigData()" id="saveConfig" <% if (!isSignedIn) { %> disabled title="You must be signed in to use this feature" <% } %>>Save Configuration To Account</button>
-        <button onclick="loadConfigData()" id="loadConfig" <% if (!isSignedIn) { %> disabled title="You must be signed in to use this feature" <% } %>>Load Configuration From Account</button>
         <h2>AI character details</h2>
 
         <p>AI's Character Name</p>
@@ -63,13 +61,19 @@
         <textarea id = "token_estimate" cols="30" rows = "1" disabled = true>? Tokens / 2048 Tokens</textarea>
         <p>Last response:</p>
         <textarea id="lastResponse" cols="70" rows = "7" disabled=true></textarea>
+        <br>
+        <p>Use this button to summarize the conversation. The AI will take the conversation and create as short summary of it. 
+        <br>Some information will be lost, however it will allow you to keep conversations going for longer without having to
+        <br>deal with the conversation going stale and repeating itself. The hire the token limit, the longer the summary can be</p>
+        <button onclick="summarize()">Summarize</button>
+        <p>Summary</p>
+        <textarea id="summary_box" cols="70" rows="7" disabled></textarea>
         <br><br><br>
         <p>Chat Log</p>
         <textarea id="log" cols="70" rows = "8" disabled = true></textarea>
-        <br>
-        <button onclick="clearChatLog()">Clear the chat log (NO CONFIRMATION!!!)</button>
-        <button onclick="saveQuestions()" <% if (!isSignedIn) { %> disabled title="You must be signed in to use this feature" <% } %> >Save questions to account</button>
-        <button onclick="loadQuestions()" <% if (!isSignedIn) { %> disabled title="You must be signed in to use this feature" <% } %> >Load questions from account</button>
+        <br><br><br>
+        <p>Last Prompt:</p>
+        <textarea id="lastPrompt" cols="70" rows = "8" disabled></textarea>
         <br><br><br>
         <h1>Edit responses</h1>
         <p><b>Enter Question ID (DEFAULT: 0)</b>
@@ -80,7 +84,7 @@
         <button onclick="fillInEditBoxes()">Fill in boxes</button>
         <p>Applys changes to the given ID</p>
         <button onclick="editQuestion()">Apply Changes</button>
-        <p>Deletes the question. This cannot be undon and there is no confirmation</p>
+        <p>Deletes the question. This cannot be undone and there is no confirmation. Useful for deleting error messages if you have to</p>
         <button onclick="removeQuestion()">DELETE QUESTION</button>
         <p>Will insert a question at the given ID, increases the ID of the questions after by 1</p>
         <button onclick="insertQuestion()">INSERT QUESTION</button>
@@ -94,15 +98,37 @@
         <p><b>Your Name</b>
         <br>(This is "Question" if you didn't put one in)</p>
         <textarea id="edit_pl_name" cols="70" rows="1"></textarea>
-        <br>
-        <button onclick="loadElementsFromAccount()">Load</button>
-        <button onclick="saveElementsToSession()">Save</button>
         <script>
             var questions = []
+            var summary = ""
 
             function main() {
                 isSignedIn()
                 loadElementsFromAccount()
+            }
+
+            function summarize() {
+                var data = {
+                    apiKey: apiKey.value,
+                    questions: questions,
+                    engine: engine.value,
+                    temperature: parseFloat(temperature.value),
+                    max_tokens: parseInt(max_tokens.value)
+                }
+
+                fetch('/api/generate_summary', {
+                    method: "post",
+                    headers: { "content-type": "application/json"},
+                    body: JSON.stringify(data)
+                }).then((value) => {
+                    value.json().then((data) => {
+                        lastPrompt.value = data.prompt
+                        summary = data.response
+                        summary_box.value = summary
+                        clearChatLog()
+                        updateChatLog()
+                    })
+                });
             }
 
             function redirect(location) {
@@ -167,57 +193,6 @@
                 })
             }
 
-            function loadQuestions() {
-                fetch('/user/getquestions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json'},
-                    body: "{}"
-                }).then((value) => {
-                    value.json().then((res) => {
-                        questions = JSON.parse(res)
-                        updateChatLog()
-                    })
-                })
-            }
-
-            function saveQuestions() {
-                fetch('/user/savequestions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json'},
-                    body: JSON.stringify(questions)
-                })
-            }
-
-            function loadConfigData() {
-                fetch('/user/getconfigdata', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json'},
-                    body: "{}"
-                }).then((response) => {
-                    response.json().then((res) => {
-                        apiKey.value = res.apiKey
-                        temperature.value = res.temperature
-                        max_tokens.value = res.max_tokens
-                        engine.value = res.engine
-                    });
-                })
-            }
-
-            function saveConfigData() {
-                var data = {
-                    apiKey: apiKey.value,
-                    max_tokens: max_tokens.value,
-                    temperature: temperature.value,
-                    engine: engine.value
-                }
-
-                fetch('/user/saveconfigdata', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json'},
-                    body: JSON.stringify(data)
-                })
-            }
-
             function signout() {
                 fetch('/user/signout', {
                     method: 'POST',
@@ -252,6 +227,7 @@
 
             function removeQuestion() {
                 var id = parseInt(edit_id.value)
+                console.log(id)
 
                 if (id == null) {
                     id = 0
@@ -259,7 +235,7 @@
 
                 var index = questions[id]
 
-                questions.splice(index, 1)
+                questions.splice(id, 1)
                 fixQuestionIds()
                 updateChatLog()
             }
@@ -350,17 +326,18 @@
             function getTokenUseCount() {
                 var ai_charDesc_elem = ai_charDesc.value
                 var pl_charDesc_elem = pl_charDesc.value
-                var question = question.value
+                var question_elem = question.value
                 var ai_name_elem = ai_name.value
                 var pl_name_elem = pl_name.value
 
-                var nextQuestion = {"question": question, "ai_name": ai_name_elem, "pl_name": pl_name_elem}
+                var nextQuestion = {"question": question_elem, "ai_name": ai_name_elem, "pl_name": pl_name_elem}
 
                 var data = {
                     "ai_charDesc": ai_charDesc_elem,
                     "pl_charDesc": pl_charDesc_elem,
                     "questions": questions,
-                    "nextQuestion": nextQuestion
+                    "nextQuestion": nextQuestion,
+                    "max_tokens": max_tokens.value,
                 }
 
                 fetch('api/token_estimate', {
@@ -369,9 +346,9 @@
                     body: JSON.stringify(data)
                 }).then(res => {
                     res.text().then(text => {
-                        var max_tokens = parseInt(max_tokens.value)
-                        var token_estimate = token_estimate
-                        token_estimate.value = `${parseInt(text) + max_tokens} Tokens / 2048 Tokens`
+                        var max_tokens_elem = parseInt(max_tokens.value)
+                        var token_estimate_elem = token_estimate
+                        token_estimate_elem.value = `${text} Tokens / 2048 Tokens`
                     })
                 })
             }
@@ -428,7 +405,8 @@
                     "pl_name": pl_name_elem,
                     "max_tokens": max_tokens_elem,
                     "nextQuestion": nextQuestion,
-                    "engine": engine_elem
+                    "engine": engine_elem,
+                    "summary": summary
                 }
 
                 fetch('api/generate', {
@@ -436,8 +414,10 @@
                     headers: { 'Content-Type': 'application/json'},
                     body: JSON.stringify(data)
                 }).then(res => {
-                    res.text().then(text => {
-                        var response = text.trim()
+                    res.json().then(data => {
+                        var response = data.response.trim()
+
+                        lastPrompt.value = data.prompt
 
                         lastResponse.value = response
                         nextQuestion.response = response
